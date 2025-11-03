@@ -13,8 +13,6 @@ from utils.audio_utils import (
 from utils.scp_utils import (
     read_scp,
     write_scp,
-    read_ark_scp,
-    create_scp_list,
 )
 
 __all__ = [
@@ -27,6 +25,4 @@ __all__ = [
     'normalize_audio',
     'read_scp',
     'write_scp',
-    'read_ark_scp',
-    'create_scp_list',
 ]

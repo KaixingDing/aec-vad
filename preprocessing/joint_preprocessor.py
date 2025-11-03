@@ -236,11 +236,8 @@ class JointAECVADPreprocessor:
         output_path = Path(output_dir) / split
         output_path.mkdir(parents=True, exist_ok=True)
         
-        # 准备SCP字典
-        mic_scp = {}
-        far_scp = {}
-        near_scp = {}
-        vad_scp = {}
+        # 准备联合SCP字典
+        scp_dict = {}
         
         print(f"生成 {num_samples} 个 {split} 样本...")
         
@@ -266,20 +263,19 @@ class JointAECVADPreprocessor:
             sf.write(near_path, sample['near_end'], self.sample_rate)
             np.save(vad_path, sample['vad_labels'])
             
-            # 添加到SCP字典
-            mic_scp[utt_id] = str(mic_path.absolute())
-            far_scp[utt_id] = str(far_path.absolute())
-            near_scp[utt_id] = str(near_path.absolute())
-            vad_scp[utt_id] = str(vad_path.absolute())
+            # 添加到联合SCP字典（一行包含所有路径）
+            scp_dict[utt_id] = (
+                str(mic_path.absolute()),
+                str(far_path.absolute()),
+                str(near_path.absolute()),
+                str(vad_path.absolute())
+            )
             
             if (i + 1) % 100 == 0:
                 print(f"  已生成 {i + 1}/{num_samples} 样本")
         
-        # 写入SCP文件
-        write_scp(mic_scp, output_path / 'microphone.scp')
-        write_scp(far_scp, output_path / 'far_end.scp')
-        write_scp(near_scp, output_path / 'near_end.scp')
-        write_scp(vad_scp, output_path / 'vad_labels.scp')
+        # 写入单个SCP文件
+        write_scp(scp_dict, output_path / 'data.scp')
         
         print(f"完成 {split} 集生成")
-        print(f"SCP文件保存在: {output_path}")
+        print(f"SCP文件保存在: {output_path / 'data.scp'}")

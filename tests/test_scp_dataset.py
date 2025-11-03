@@ -29,10 +29,7 @@ def create_mock_scp_data(tmp_dir):
     duration = 1.0
     num_samples = int(sample_rate * duration)
     
-    mic_scp = {}
-    far_scp = {}
-    near_scp = {}
-    vad_scp = {}
+    scp_dict = {}
     
     for i in range(5):
         utt_id = f'test_{i:03d}'
@@ -56,38 +53,30 @@ def create_mock_scp_data(tmp_dir):
         sf.write(near_path, near_audio, sample_rate)
         np.save(vad_path, vad_labels)
         
-        # 添加到SCP字典
-        mic_scp[utt_id] = str(mic_path.absolute())
-        far_scp[utt_id] = str(far_path.absolute())
-        near_scp[utt_id] = str(near_path.absolute())
-        vad_scp[utt_id] = str(vad_path.absolute())
+        # 添加到联合SCP字典
+        scp_dict[utt_id] = (
+            str(mic_path.absolute()),
+            str(far_path.absolute()),
+            str(near_path.absolute()),
+            str(vad_path.absolute())
+        )
     
-    # 写入SCP文件
-    mic_scp_path = tmp_path / 'microphone.scp'
-    far_scp_path = tmp_path / 'far_end.scp'
-    near_scp_path = tmp_path / 'near_end.scp'
-    vad_scp_path = tmp_path / 'vad_labels.scp'
+    # 写入单个SCP文件
+    scp_path = tmp_path / 'data.scp'
+    write_scp(scp_dict, scp_path)
     
-    write_scp(mic_scp, mic_scp_path)
-    write_scp(far_scp, far_scp_path)
-    write_scp(near_scp, near_scp_path)
-    write_scp(vad_scp, vad_scp_path)
-    
-    return mic_scp_path, far_scp_path, near_scp_path, vad_scp_path
+    return scp_path
 
 
 def test_scp_dataset_creation():
     """测试SCP数据集创建"""
     with tempfile.TemporaryDirectory() as tmp_dir:
         # 创建模拟数据
-        mic_scp, far_scp, near_scp, vad_scp = create_mock_scp_data(tmp_dir)
+        scp_path = create_mock_scp_data(tmp_dir)
         
         # 创建数据集
         dataset = SCPDataset(
-            microphone_scp=str(mic_scp),
-            far_end_scp=str(far_scp),
-            near_end_scp=str(near_scp),
-            vad_labels_scp=str(vad_scp),
+            scp_file=str(scp_path),
             n_fft=512,
             hop_length=128,
         )
@@ -114,14 +103,11 @@ def test_scp_dataset_batch():
     """测试SCP数据集批处理"""
     with tempfile.TemporaryDirectory() as tmp_dir:
         # 创建模拟数据
-        mic_scp, far_scp, near_scp, vad_scp = create_mock_scp_data(tmp_dir)
+        scp_path = create_mock_scp_data(tmp_dir)
         
         # 创建数据集
         dataset = SCPDataset(
-            microphone_scp=str(mic_scp),
-            far_end_scp=str(far_scp),
-            near_end_scp=str(near_scp),
-            vad_labels_scp=str(vad_scp),
+            scp_file=str(scp_path),
         )
         
         # 获取多个样本
@@ -150,14 +136,11 @@ def test_scp_dataloader():
     """测试SCP数据加载器"""
     with tempfile.TemporaryDirectory() as tmp_dir:
         # 创建模拟数据
-        mic_scp, far_scp, near_scp, vad_scp = create_mock_scp_data(tmp_dir)
+        scp_path = create_mock_scp_data(tmp_dir)
         
         # 创建数据加载器
         dataloader = create_scp_dataloader(
-            microphone_scp=str(mic_scp),
-            far_end_scp=str(far_scp),
-            near_end_scp=str(near_scp),
-            vad_labels_scp=str(vad_scp),
+            scp_file=str(scp_path),
             batch_size=2,
             shuffle=False,
             num_workers=0,
@@ -179,14 +162,11 @@ def test_scp_dataset_with_model():
     """测试SCP数据集与模型配合使用"""
     with tempfile.TemporaryDirectory() as tmp_dir:
         # 创建模拟数据
-        mic_scp, far_scp, near_scp, vad_scp = create_mock_scp_data(tmp_dir)
+        scp_path = create_mock_scp_data(tmp_dir)
         
         # 创建数据加载器
         dataloader = create_scp_dataloader(
-            microphone_scp=str(mic_scp),
-            far_end_scp=str(far_scp),
-            near_end_scp=str(near_scp),
-            vad_labels_scp=str(vad_scp),
+            scp_file=str(scp_path),
             batch_size=2,
             shuffle=False,
             num_workers=0,
