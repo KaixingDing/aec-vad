@@ -149,10 +149,8 @@ def main():
     print("\n数据预处理完成！")
     print(f"输出目录: {args.output_dir}")
     print("\nSCP文件说明:")
-    print("  - microphone.scp: 麦克风信号（用于AEC和VAD）")
-    print("  - far_end.scp: 远端参考信号（用于AEC）")
-    print("  - near_end.scp: 近端纯净语音（AEC目标）")
-    print("  - vad_labels.scp: VAD标签（VAD目标）")
+    print("  - data.scp: 联合SCP文件，每行包含一个样本的所有路径")
+    print("    格式: utt_id mic_path far_path near_path vad_path")
 
 
 if __name__ == '__main__':

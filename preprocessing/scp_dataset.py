@@ -1,6 +1,6 @@
 """基于SCP文件的联合AEC-VAD数据集
 
-从SCP文件加载预处理好的数据，同时支持AEC和VAD任务训练。
+从单个SCP文件加载预处理好的数据，同时支持AEC和VAD任务训练。
 """
 
 import torch
@@ -8,7 +8,6 @@ import numpy as np
 import soundfile as sf
 from torch.utils.data import Dataset, DataLoader
 from typing import Dict, Optional, List
-from pathlib import Path
 
 from utils.scp_utils import read_scp
 from utils.audio_utils import stft_transform
@@ -18,7 +17,7 @@ class SCPDataset(Dataset):
     """
     基于SCP文件的联合AEC-VAD数据集
     
-    从SCP文件读取预处理好的数据，支持同时进行AEC和VAD任务训练。
+    从单个SCP文件读取预处理好的数据，支持同时进行AEC和VAD任务训练。
     每个样本包含：
     - 麦克风信号
     - 远端参考信号
@@ -27,10 +26,7 @@ class SCPDataset(Dataset):
     """
     
     def __init__(self,
-                 microphone_scp: str,
-                 far_end_scp: str,
-                 near_end_scp: str,
-                 vad_labels_scp: str,
+                 scp_file: str,
                  n_fft: int = 512,
                  hop_length: int = 128,
                  sample_rate: int = 16000):
@@ -38,30 +34,19 @@ class SCPDataset(Dataset):
         初始化SCP数据集
         
         Args:
-            microphone_scp: 麦克风信号SCP文件路径
-            far_end_scp: 远端信号SCP文件路径
-            near_end_scp: 近端纯净语音SCP文件路径
-            vad_labels_scp: VAD标签SCP文件路径
+            scp_file: 联合SCP文件路径
             n_fft: STFT的FFT大小
             hop_length: STFT的帧移
             sample_rate: 采样率
         """
         # 读取SCP文件
-        self.microphone_dict = read_scp(microphone_scp)
-        self.far_end_dict = read_scp(far_end_scp)
-        self.near_end_dict = read_scp(near_end_scp)
-        self.vad_labels_dict = read_scp(vad_labels_scp)
+        self.data_dict = read_scp(scp_file)
         
-        # 获取样本ID列表（使用所有SCP文件的交集）
-        self.utt_ids = sorted(
-            set(self.microphone_dict.keys()) &
-            set(self.far_end_dict.keys()) &
-            set(self.near_end_dict.keys()) &
-            set(self.vad_labels_dict.keys())
-        )
+        # 获取样本ID列表
+        self.utt_ids = sorted(self.data_dict.keys())
         
         if not self.utt_ids:
-            raise ValueError("未找到有效样本。请检查SCP文件是否包含相同的样本ID。")
+            raise ValueError("未找到有效样本。请检查SCP文件。")
         
         self.n_fft = n_fft
         self.hop_length = hop_length
@@ -84,14 +69,15 @@ class SCPDataset(Dataset):
             包含AEC和VAD所需数据的字典
         """
         utt_id = self.utt_ids[idx]
+        mic_path, far_path, near_path, vad_path = self.data_dict[utt_id]
         
         # 加载音频文件
-        microphone, _ = sf.read(self.microphone_dict[utt_id])
-        far_end, _ = sf.read(self.far_end_dict[utt_id])
-        near_end, _ = sf.read(self.near_end_dict[utt_id])
+        microphone, _ = sf.read(mic_path)
+        far_end, _ = sf.read(far_path)
+        near_end, _ = sf.read(near_path)
         
         # 加载VAD标签
-        vad_labels = np.load(self.vad_labels_dict[utt_id])
+        vad_labels = np.load(vad_path)
         
         # 计算STFT
         mic_stft = stft_transform(microphone, n_fft=self.n_fft, hop_length=self.hop_length)
@@ -197,10 +183,7 @@ def collate_scp_batch(batch: List[Dict]) -> Dict[str, torch.Tensor]:
     }
 
 
-def create_scp_dataloader(microphone_scp: str,
-                          far_end_scp: str,
-                          near_end_scp: str,
-                          vad_labels_scp: str,
+def create_scp_dataloader(scp_file: str,
                           batch_size: int = 16,
                           shuffle: bool = True,
                           num_workers: int = 4,
@@ -210,10 +193,7 @@ def create_scp_dataloader(microphone_scp: str,
     创建基于SCP文件的数据加载器
     
     Args:
-        microphone_scp: 麦克风信号SCP文件路径
-        far_end_scp: 远端信号SCP文件路径
-        near_end_scp: 近端纯净语音SCP文件路径
-        vad_labels_scp: VAD标签SCP文件路径
+        scp_file: 联合SCP文件路径
         batch_size: 批次大小
         shuffle: 是否打乱数据
         num_workers: 数据加载线程数
@@ -224,10 +204,7 @@ def create_scp_dataloader(microphone_scp: str,
         DataLoader实例
     """
     dataset = SCPDataset(
-        microphone_scp=microphone_scp,
-        far_end_scp=far_end_scp,
-        near_end_scp=near_end_scp,
-        vad_labels_scp=vad_labels_scp,
+        scp_file=scp_file,
         n_fft=n_fft,
         hop_length=hop_length,
     )
