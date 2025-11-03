@@ -28,16 +28,18 @@ class SCPDataset(Dataset):
     def __init__(self,
                  scp_file: str,
                  n_fft: int = 512,
-                 hop_length: int = 128,
+                 hop_length: int = 160,
+                 win_length: int = 400,
                  sample_rate: int = 16000):
         """
         初始化SCP数据集
         
         Args:
             scp_file: 联合SCP文件路径
-            n_fft: STFT的FFT大小
-            hop_length: STFT的帧移
-            sample_rate: 采样率
+            n_fft: STFT的FFT大小（默认512，对应32ms@16kHz）
+            hop_length: STFT的帧移（默认160，对应10ms@16kHz）
+            win_length: STFT的窗口大小（默认400，对应25ms@16kHz）
+            sample_rate: 采样率（默认16000Hz）
         """
         # 读取SCP文件
         self.data_dict = read_scp(scp_file)
@@ -50,6 +52,7 @@ class SCPDataset(Dataset):
         
         self.n_fft = n_fft
         self.hop_length = hop_length
+        self.win_length = win_length
         self.sample_rate = sample_rate
         
         print(f"加载了 {len(self.utt_ids)} 个样本")
@@ -79,10 +82,13 @@ class SCPDataset(Dataset):
         # 加载VAD标签
         vad_labels = np.load(vad_path)
         
-        # 计算STFT
-        mic_stft = stft_transform(microphone, n_fft=self.n_fft, hop_length=self.hop_length)
-        far_end_stft = stft_transform(far_end, n_fft=self.n_fft, hop_length=self.hop_length)
-        near_end_stft = stft_transform(near_end, n_fft=self.n_fft, hop_length=self.hop_length)
+        # 计算STFT（使用Povey窗口）
+        mic_stft = stft_transform(microphone, n_fft=self.n_fft, hop_length=self.hop_length, 
+                                 win_length=self.win_length, sr=self.sample_rate)
+        far_end_stft = stft_transform(far_end, n_fft=self.n_fft, hop_length=self.hop_length,
+                                     win_length=self.win_length, sr=self.sample_rate)
+        near_end_stft = stft_transform(near_end, n_fft=self.n_fft, hop_length=self.hop_length,
+                                      win_length=self.win_length, sr=self.sample_rate)
         
         # 提取幅度和相位
         mic_mag = np.abs(mic_stft)
@@ -188,7 +194,8 @@ def create_scp_dataloader(scp_file: str,
                           shuffle: bool = True,
                           num_workers: int = 4,
                           n_fft: int = 512,
-                          hop_length: int = 128) -> DataLoader:
+                          hop_length: int = 160,
+                          win_length: int = 400) -> DataLoader:
     """
     创建基于SCP文件的数据加载器
     
@@ -197,8 +204,9 @@ def create_scp_dataloader(scp_file: str,
         batch_size: 批次大小
         shuffle: 是否打乱数据
         num_workers: 数据加载线程数
-        n_fft: STFT的FFT大小
-        hop_length: STFT的帧移
+        n_fft: STFT的FFT大小（默认512，对应32ms@16kHz）
+        hop_length: STFT的帧移（默认160，对应10ms@16kHz）
+        win_length: STFT的窗口大小（默认400，对应25ms@16kHz）
     
     Returns:
         DataLoader实例
@@ -207,6 +215,7 @@ def create_scp_dataloader(scp_file: str,
         scp_file=scp_file,
         n_fft=n_fft,
         hop_length=hop_length,
+        win_length=win_length,
     )
     
     dataloader = DataLoader(
