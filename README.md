@@ -351,11 +351,24 @@ All tests use **mock data** (randomly generated tensors) and do not require actu
    - Curriculum learning (start with easier samples)
    - Data augmentation (pitch shift, time stretch)
    - Online hard example mining
+   - Separate validation dataloader with different random seed
 
 4. **Extensions**:
    - Add more tasks (denoising, source separation)
    - Real-time inference optimization
    - Model compression and quantization
+
+5. **Code Quality**:
+   - Replace linear interpolation resampling with librosa.resample()
+   - Use scipy.signal.windows.hann() instead of deprecated np.hanning()
+   - Implement proper anti-aliasing in audio resampling
+
+## ⚠️ Known Limitations
+
+- Audio resampling uses linear interpolation (for simplicity); production code should use proper anti-aliasing resampling
+- np.hanning() is deprecated in newer NumPy versions; consider scipy.signal alternatives
+- Training and validation use same dataloader in demo mode; separate validation set recommended for actual training
+- STFT/iSTFT implementation is basic; consider using torchaudio for production
 
 ## 📝 Citation
 
