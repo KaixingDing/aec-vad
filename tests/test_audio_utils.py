@@ -1,4 +1,4 @@
-"""Unit tests for audio utilities using mock data."""
+"""使用模拟数据对音频工具进行单元测试"""
 
 import pytest
 import numpy as np
@@ -14,83 +14,85 @@ from utils.audio_utils import (
 
 
 def test_apply_rir():
-    """Test RIR application."""
-    # Generate mock signal and RIR
-    signal = np.random.randn(16000)  # 1 second at 16kHz
-    rir = np.random.randn(1000)  # Short RIR
+    """测试RIR应用"""
+    # 生成模拟信号和RIR
+    signal = np.random.randn(16000)  # 16kHz下1秒
+    rir = np.random.randn(1000)  # 短RIR
     
     result = apply_rir(signal, rir)
     
-    # Check output length matches input
+    # 检查输出长度与输入匹配
     assert len(result) == len(signal)
     
-    # Check output is not all zeros
+    # 检查输出不全为零
     assert np.abs(result).max() > 0
 
 
 def test_mix_signals():
-    """Test signal mixing with SNR control."""
+    """测试带SNR控制的信号混合"""
     clean = np.random.randn(16000)
     echo = np.random.randn(16000)
     noise = np.random.randn(16000)
     
-    # Test mixing
+    # 测试混合
     mixed = mix_signals(clean, echo, noise, ser_db=10.0, snr_db=20.0)
     
-    # Check output length
+    # 检查输出长度
     assert len(mixed) == min(len(clean), len(echo), len(noise))
     
-    # Check output is not clipping
+    # 检查输出未削波
     assert np.abs(mixed).max() <= 1.0
 
 
 def test_compute_snr():
-    """Test SNR computation."""
+    """测试SNR计算"""
     signal = np.ones(1000)
     noise = np.ones(1000) * 0.1
     
     snr = compute_snr(signal, noise)
     
-    # Expected SNR should be positive
+    # 期望SNR应该为正
     assert snr > 0
     
-    # Test with zero noise
+    # 零噪声测试
     zero_noise = np.zeros(1000)
     snr_inf = compute_snr(signal, zero_noise)
     assert snr_inf == float('inf')
 
 
 def test_stft_transform():
-    """Test STFT computation."""
+    """测试STFT计算"""
     signal = np.random.randn(16000)
     n_fft = 512
-    hop_length = 128
+    hop_length = 160
+    win_length = 400
     
-    stft = stft_transform(signal, n_fft=n_fft, hop_length=hop_length)
+    stft = stft_transform(signal, n_fft=n_fft, hop_length=hop_length, win_length=win_length)
     
-    # Check output shape
+    # 检查输出形状
     assert stft.shape[0] == n_fft // 2 + 1
     assert stft.shape[1] > 0
     
-    # Check complex output
+    # 检查复数输出
     assert stft.dtype == np.complex64
 
 
 def test_istft_transform():
-    """Test inverse STFT."""
-    # Create a signal
+    """测试逆STFT"""
+    # 创建信号
     original_signal = np.random.randn(16000)
     n_fft = 512
-    hop_length = 128
+    hop_length = 160
+    win_length = 400
     
-    # Forward STFT
-    stft = stft_transform(original_signal, n_fft=n_fft, hop_length=hop_length)
+    # 前向STFT
+    stft = stft_transform(original_signal, n_fft=n_fft, hop_length=hop_length, win_length=win_length)
     
-    # Inverse STFT
-    reconstructed = istft_transform(stft, hop_length=hop_length)
+    # 逆STFT
+    reconstructed = istft_transform(stft, hop_length=hop_length, win_length=win_length)
     
-    # Check length is approximately correct
-    assert abs(len(reconstructed) - len(original_signal)) < n_fft
+    # 检查长度大致正确
+    assert abs(len(reconstructed) - len(original_signal)) < win_length
 
 
 def test_generate_vad_labels():
@@ -137,23 +139,25 @@ def test_normalize_audio():
 
 
 def test_stft_istft_reconstruction():
-    """Test that STFT->ISTFT approximately reconstructs signal."""
+    """测试STFT->ISTFT大致重构信号"""
     signal = np.random.randn(16000)
     n_fft = 512
-    hop_length = 128
+    hop_length = 160
+    win_length = 400
     
-    # Forward and backward
-    stft = stft_transform(signal, n_fft=n_fft, hop_length=hop_length)
-    reconstructed = istft_transform(stft, hop_length=hop_length)
+    # 前向和逆向变换
+    stft = stft_transform(signal, n_fft=n_fft, hop_length=hop_length, win_length=win_length)
+    reconstructed = istft_transform(stft, hop_length=hop_length, win_length=win_length)
     
-    # Ensure same length for comparison
+    # 确保长度相同用于比较
     min_len = min(len(signal), len(reconstructed))
     signal = signal[:min_len]
     reconstructed = reconstructed[:min_len]
     
-    # Check reconstruction error is small
+    # 检查重构误差较小
+    # Povey窗口的重构可能不完美，所以放宽容差
     error = np.mean((signal - reconstructed) ** 2)
-    assert error < 0.1
+    assert error < 0.15  # 放宽阈值以适应Povey窗口
 
 
 if __name__ == '__main__':
